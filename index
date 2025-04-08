@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aplikacja Kamery</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #camera-preview { width: 640px; height: 480px; border: 1px solid black; }
+        #capture-canvas { display: none; }
+        #result { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Aplikacja Kamery</h1>
+    <video id="camera-preview" autoplay playsinline></video>
+    <canvas id="capture-canvas"></canvas>
+    <button id="capture-button">Zrób zdjęcie</button>
+    <div id="result"></div>
+
+    <script>
+        const video = document.getElementById('camera-preview');
+        const canvas = document.getElementById('capture-canvas');
+        const captureButton = document.getElementById('capture-button');
+        const resultDiv = document.getElementById('result');
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error('Błąd dostępu do kamery:', error);
+                resultDiv.innerText = 'Nie udało się uzyskać dostępu do kamery.';
+            }
+        }
+
+        captureButton.addEventListener('click', async () => {
+            if (!video.srcObject) {
+                resultDiv.innerText = 'Kamera nie została uruchomiona.';
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageDataURL = canvas.toDataURL('image/png');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageDataURL }),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerText = data.message;
+                } else {
+                    resultDiv.innerText = `Błąd serwera: ${response.status}`;
+                }
+            } catch (error) {
+                console.error('Błąd wysyłania zdjęcia:', error);
+                resultDiv.innerText = 'Wystąpił błąd podczas wysyłania zdjęcia.';
+            }
+        });
+
+        startCamera();
+    </script>
+</body>
+</html>
